@@ -210,32 +210,37 @@ function hash(s) {
   return ((h >>> 0) % 1000) / 1000;
 }
 
+// One color per person on the tree, from the Enchanted Grove palette.
+const PERSON_COLORS = ["#7FF2D0", "#FFB38A", "#C9B4FF", "#8FD3FF", "#F7A8C9", "#B9F28F", "#FFD978", "#A0E7E5"];
+
 function drawTree(svg, chat, { compact }) {
   svg.innerHTML = "";
   const uid = compact ? chat.code : "main";
   const defs = el("defs", {}, svg);
   defs.innerHTML = `
-    <radialGradient id="gSeed-${uid}"><stop offset="0" stop-color="#fffbe0"/><stop offset=".5" stop-color="#ffe27a"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient>
-    <radialGradient id="gDone-${uid}"><stop offset="0" stop-color="#fff5d6"/><stop offset=".55" stop-color="#ffd166"/><stop offset="1" stop-color="#ffd166" stop-opacity="0"/></radialGradient>
-    <radialGradient id="gGround-${uid}" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#2c8a58" stop-opacity=".55"/><stop offset="1" stop-color="#2c8a58" stop-opacity="0"/></radialGradient>
-    <linearGradient id="gBark-${uid}" x1="0" x2="1"><stop offset="0" stop-color="#4a3222"/><stop offset=".5" stop-color="#7a5539"/><stop offset="1" stop-color="#4a3222"/></linearGradient>
-    <filter id="soft-${uid}"><feGaussianBlur stdDeviation="2.2"/></filter>`;
+    <radialGradient id="gSeed-${uid}"><stop offset="0" stop-color="#fff8e1"/><stop offset=".5" stop-color="#f2c86b"/><stop offset="1" stop-color="#f2c86b" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gDone-${uid}"><stop offset="0" stop-color="#fff8e1"/><stop offset=".55" stop-color="#f7e4b0"/><stop offset="1" stop-color="#f7e4b0" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gGround-${uid}" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#f2c86b" stop-opacity=".18"/><stop offset="1" stop-color="#f2c86b" stop-opacity="0"/></radialGradient>
+    <radialGradient id="gCanopy-${uid}"><stop offset="0" stop-color="#f2c86b" stop-opacity=".13"/><stop offset=".55" stop-color="#8e6cf0" stop-opacity=".1"/><stop offset="1" stop-color="#8e6cf0" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gBark-${uid}" x1="0" x2="1"><stop offset="0" stop-color="#3b2a14"/><stop offset=".5" stop-color="#7a5a26"/><stop offset="1" stop-color="#2a1d0e"/></linearGradient>
+    <filter id="soft-${uid}"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <filter id="glow-${uid}" filterUnits="userSpaceOnUse" x="-200" y="-200" width="1200" height="1100"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
   const ref = (n) => `url(#${n}-${uid})`;
 
   const cx = 400, groundY = 610, trunkTop = 380;
   const items = chat.items;
   el("ellipse", { cx, cy: groundY, rx: 300, ry: 40, fill: ref("gGround") }, svg);
   for (const dx of [-70, -30, 35, 75]) {
-    el("path", { d: `M${cx} ${groundY - 10} Q${cx + dx * 0.6} ${groundY} ${cx + dx} ${groundY + 12}`, stroke: "#4a3222", "stroke-width": 6, fill: "none", "stroke-linecap": "round" }, svg);
+    el("path", { d: `M${cx} ${groundY - 10} Q${cx + dx * 0.6} ${groundY} ${cx + dx} ${groundY + 12}`, stroke: ref("gBark"), "stroke-width": 6, fill: "none", "stroke-linecap": "round", opacity: 0.9 }, svg);
   }
   const top = trunkTop - Math.min(items.length, 30) * 2;
   const doneRatio = items.length ? chat.stats.done / items.length : 0;
-  el("ellipse", { cx, cy: top - 40, rx: 260, ry: 170, fill: "#5ee08f", opacity: 0.05 + doneRatio * 0.14, filter: ref("soft") }, svg);
-  el("path", { d: `M${cx - 26} ${groundY} C${cx - 18} ${groundY - 120} ${cx - 14} ${top + 60} ${cx - 8} ${top} L${cx + 8} ${top} C${cx + 14} ${top + 60} ${cx + 18} ${groundY - 120} ${cx + 26} ${groundY} Z`, fill: ref("gBark") }, svg);
+  el("ellipse", { cx, cy: top - 40, rx: 300, ry: 200, fill: ref("gCanopy"), opacity: 0.6 + doneRatio * 0.4 }, svg);
+  el("path", { d: `M${cx - 26} ${groundY} C${cx - 18} ${groundY - 120} ${cx - 14} ${top + 60} ${cx - 8} ${top} L${cx + 8} ${top} C${cx + 14} ${top + 60} ${cx + 18} ${groundY - 120} ${cx + 26} ${groundY} Z`, fill: ref("gBark"), stroke: "#f2c86b", "stroke-opacity": 0.55, "stroke-width": 1.5, filter: ref("glow") }, svg);
 
   if (!items.length) {
     // a sprout: nothing planted yet
-    el("path", { d: `M${cx} ${top} q-30 -40 -60 -30 q30 0 60 30 q30 -40 60 -30 q-30 0 -60 30`, fill: "#5ee08f", opacity: 0.8 }, svg);
+    el("path", { d: `M${cx} ${top} q-30 -40 -60 -30 q30 0 60 30 q30 -40 60 -30 q-30 0 -60 30`, fill: "#7ff2d0", opacity: 0.85, filter: ref("glow") }, svg);
   }
 
   const byPerson = new Map();
@@ -248,13 +253,14 @@ function drawTree(svg, chat, { compact }) {
   const n = people.length;
   people.forEach((who, i) => {
     const mine = byPerson.get(who);
+    const color = PERSON_COLORS[i % PERSON_COLORS.length];
     const ang = ((n === 1 ? 0 : -62 + (124 * i) / (n - 1)) * Math.PI) / 180;
     const sx = cx, sy = top + 30 + (i % 2) * 40;
     const L = 150 + Math.min(mine.length, 10) * 10;
     const ex = sx + Math.sin(ang) * L, ey = sy - Math.cos(ang) * L * 0.85;
     const qx = sx + Math.sin(ang) * L * 0.4, qy = sy - Math.cos(ang) * L * 0.6 - 20;
-    el("path", { d: `M${sx} ${sy} Q${qx} ${qy} ${ex} ${ey}`, stroke: "#6b4a33", "stroke-width": 7, fill: "none", "stroke-linecap": "round" }, svg);
-    if (!compact) el("text", { x: ex, y: ey - 22, "text-anchor": "middle", class: "branchLabel" }, svg).textContent = who;
+    el("path", { d: `M${sx} ${sy} Q${qx} ${qy} ${ex} ${ey}`, stroke: color, "stroke-opacity": 0.75, "stroke-width": 6, fill: "none", "stroke-linecap": "round", filter: ref("glow") }, svg);
+    if (!compact) el("text", { x: ex, y: ey - 22, "text-anchor": "middle", class: "branchLabel", fill: color }, svg).textContent = who;
     mine.forEach((it, j) => {
       const t = 0.3 + (0.68 * (j + 1)) / (mine.length + 1);
       const px = (1 - t) ** 2 * sx + 2 * (1 - t) * t * qx + t * t * ex;
@@ -263,7 +269,7 @@ function drawTree(svg, chat, { compact }) {
       const off = 14 + hash(it.id) * 10;
       const x = px + Math.cos(ang) * off * sideSign;
       const y = py + Math.sin(ang) * off * sideSign;
-      el("line", { x1: px, y1: py, x2: x, y2: y, stroke: "#6b4a33", "stroke-width": 2 }, svg);
+      el("line", { x1: px, y1: py, x2: x, y2: y, stroke: color, "stroke-opacity": 0.5, "stroke-width": 2 }, svg);
       node(svg, it, x, y, ang + sideSign * 0.8, ref, compact);
     });
   });
@@ -281,19 +287,19 @@ function node(svg, it, x, y, rot, ref, compact) {
 
   if (it.kind === "commitment") {
     if (done) el("circle", { r: 14, fill: ref("gDone"), class: "glow" }, inner);
-    el("ellipse", { rx: 11, ry: 5.5, fill: done ? "#ffd166" : "#5ee08f", transform: `rotate(${deg})` }, inner);
-    el("line", { x1: -9, y1: 0, x2: 9, y2: 0, stroke: "#1d6b40", "stroke-width": 1, transform: `rotate(${deg})` }, inner);
+    el("ellipse", { rx: 11, ry: 5.5, fill: done ? "#f7e4b0" : "#7ff2d0", filter: ref("glow"), transform: `rotate(${deg})` }, inner);
+    el("line", { x1: -9, y1: 0, x2: 9, y2: 0, stroke: "#07060d", "stroke-opacity": 0.35, "stroke-width": 1, transform: `rotate(${deg})` }, inner);
   } else if (it.kind === "decision") {
     if (done) el("circle", { r: 16, fill: ref("gDone"), class: "glow" }, inner);
     for (let k = 0; k < 5; k++) {
       const a = (k * 2 * Math.PI) / 5;
-      el("circle", { cx: Math.cos(a) * 6, cy: Math.sin(a) * 6, r: 5, fill: "#f59ad6" }, inner);
+      el("circle", { cx: Math.cos(a) * 6, cy: Math.sin(a) * 6, r: 5, fill: "#f7a8c9", "fill-opacity": 0.92 }, inner);
     }
-    el("circle", { r: 3.5, fill: "#ffe27a" }, inner);
+    el("circle", { r: 3.5, fill: "#f7e4b0" }, inner);
   } else {
     el("circle", { r: it.credited ? 18 : 14, fill: done ? ref("gDone") : ref("gSeed"), class: "glow" }, inner);
-    el("circle", { r: 4, fill: "#fffbe0" }, inner);
-    if (it.credited) el("circle", { r: 9, fill: "none", stroke: "#fffbe0", "stroke-width": 1, "stroke-dasharray": "2 3" }, inner);
+    el("circle", { r: 4, fill: "#fff8e1" }, inner);
+    if (it.credited) el("circle", { r: 10, fill: "none", stroke: "#f2c86b", "stroke-width": 1.6 }, inner);
   }
   if (compact) return;
 
@@ -328,11 +334,11 @@ function drawGrowth(points) {
   const X = (t) => P + ((t - t0) / (t1 - t0 || 1)) * (W - 2 * P);
   const Y = (v) => H - P - (v / max) * (H - 2 * P - 10);
   const line = (key) => points.map((p, i) => `${i ? "L" : "M"}${X(p.t).toFixed(1)} ${Y(p[key]).toFixed(1)}`).join(" ");
-  el("path", { d: `${line("planted")} L${X(t1)} ${H - P} L${X(t0)} ${H - P} Z`, fill: "#5ee08f", opacity: 0.12 }, svg);
-  el("path", { d: line("planted"), stroke: "#5ee08f", "stroke-width": 2, fill: "none" }, svg);
-  el("path", { d: line("bloomed"), stroke: "#ffd166", "stroke-width": 2, fill: "none" }, svg);
+  el("path", { d: `${line("planted")} L${X(t1)} ${H - P} L${X(t0)} ${H - P} Z`, fill: "#8e6cf0", opacity: 0.18 }, svg);
+  el("path", { d: line("planted"), stroke: "#c9b4ff", "stroke-width": 2, fill: "none" }, svg);
+  el("path", { d: line("bloomed"), stroke: "#f2c86b", "stroke-width": 2, fill: "none" }, svg);
   const last = points.at(-1);
-  el("text", { x: W - P, y: 12, "text-anchor": "end", fill: "#9ab9a6", "font-size": 10 }, svg).textContent = `${last.planted} planted · ${last.bloomed} bloomed`;
+  el("text", { x: W - P, y: 12, "text-anchor": "end", fill: "#a99cc7", "font-size": 10 }, svg).textContent = `${last.planted} planted · ${last.bloomed} bloomed`;
 }
 
 function side(chat) {
@@ -447,7 +453,21 @@ $("meetingSubmit").addEventListener("click", async (ev) => {
   }
 });
 
-// ---------------------------------------------------------------- fireflies
+// ---------------------------------------------------------------- stars + fireflies
+(function stars() {
+  const box = $("stars");
+  for (let i = 0; i < 36; i++) {
+    const h = hash(`star${i}`), k = hash(`twinkle${i}`);
+    const s = document.createElement("span");
+    s.className = "star";
+    s.style.left = `${h * 100}%`;
+    s.style.top = `${k * 70}%`;
+    s.style.animationDelay = `${(h * 40) % 4}s`;
+    s.style.transform = `scale(${1 + Math.floor(k * 3) * 0.4})`;
+    box.appendChild(s);
+  }
+})();
+
 (function fireflies() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const box = $("fireflies");
