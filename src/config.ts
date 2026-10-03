@@ -35,7 +35,7 @@ export const config = {
   },
   elevenlabs: {
     apiKey: env("ELEVENLABS_API_KEY"),
-    voiceId: env("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM"),
+    voiceId: env("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMaL"),
     ttsModel: env("ELEVENLABS_TTS_MODEL", "eleven_flash_v2_5"),
     sttModel: env("ELEVENLABS_STT_MODEL", "scribe_v1"),
   },
