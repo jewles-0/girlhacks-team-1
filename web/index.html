@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Keeper Grove</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="fireflies" aria-hidden="true"></div>
+
+<header>
+  <div class="brand">
+    <span class="logo">🌳</span>
+    <div>
+      <h1>Keeper Grove</h1>
+      <p class="sub">Every commitment, decision and idea, and who planted it.</p>
+    </div>
+  </div>
+  <div class="controls">
+    <label>Grove <select id="chatPicker"></select></label>
+    <button id="recapBtn" title="Hear a spoken recap (ElevenLabs)">🔊 Recap</button>
+    <button id="meetingBtn" title="Add a meeting transcript or recording">＋ Meeting</button>
+  </div>
+</header>
+
+<main>
+  <section class="treeWrap">
+    <svg id="tree" viewBox="0 90 800 570" role="img" aria-label="Tree of the group's memory"></svg>
+    <div id="tooltip" hidden></div>
+    <div id="empty" hidden>
+      <p>No groves yet 🌱</p>
+      <p class="muted">Add Keeper to a group chat, run <code>npm run terminal</code>, or add a meeting.</p>
+    </div>
+    <div class="legend">
+      <span><i class="dot leaf"></i>Commitment</span>
+      <span><i class="dot flower"></i>Decision</span>
+      <span><i class="dot seed"></i>Idea</span>
+      <span><i class="dot done"></i>Done</span>
+    </div>
+  </section>
+
+  <aside>
+    <div class="stats" id="stats"></div>
+    <div id="lists"></div>
+    <p class="privacy">🔒 This page never shows phone numbers or message text.</p>
+  </aside>
+</main>
+
+<dialog id="meetingDialog">
+  <form method="dialog" id="meetingForm">
+    <h2>Plant a meeting</h2>
+    <p class="muted">Paste a transcript (<code>Name: what they said</code>) or upload a recording. Recordings are transcribed by ElevenLabs with speaker separation.</p>
+    <label>Title <input name="title" value="Team meeting" /></label>
+    <label>Transcript <textarea name="transcript" rows="8" placeholder="Alex: I'll write the onboarding copy by Wednesday&#10;Sam: what if we mock the payroll API?"></textarea></label>
+    <label>…or recording <input type="file" name="audio" accept="audio/*,video/mp4" /></label>
+    <label>Access token (if set) <input name="token" type="password" autocomplete="off" /></label>
+    <p id="meetingStatus" class="muted"></p>
+    <div class="row">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button id="meetingSubmit" value="default" class="primary">Plant it 🌱</button>
+    </div>
+  </form>
+</dialog>
+
+<audio id="recapAudio" hidden></audio>
+<script src="app.js" type="module"></script>
+</body>
+</html>

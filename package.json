@@ -1,0 +1,30 @@
+{
+  "name": "keeper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Keeper: a quiet iMessage group-chat member that remembers commitments, decisions and ideas, and credits who said them first.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts imessage",
+    "start": "tsx src/index.ts imessage",
+    "local": "tsx src/index.ts local",
+    "terminal": "tsx src/index.ts terminal",
+    "tree": "tsx src/index.ts api-only",
+    "sim": "tsx src/sim.ts",
+    "meeting": "tsx src/meeting-cli.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "openai": "^7.27.0",
+    "spectrum-ts": "^12.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  }
+}

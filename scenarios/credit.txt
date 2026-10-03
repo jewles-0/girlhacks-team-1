@@ -1,0 +1,12 @@
+# The core demo: an idea gets talked over, then restated by someone else.
+Priya: what if we survey users first before building anything?
+Jake: nah let's just start coding, we have no time
+Maya: I'll do the mockups by tonight
+---
+Jake: ok so food at 7?
+Maya: yeah pizza
+---
+@wait 15
+Jake: honestly we should survey users first before building anything
+---
+Priya: keeper what's still open?

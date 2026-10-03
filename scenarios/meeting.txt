@@ -1,0 +1,8 @@
+# Sample meeting transcript for `npm run meeting -- scenarios/meeting.txt "Sprint planning"`
+Alex: Okay, quick sync. We need to ship the onboarding flow by the end of the month.
+Sam: I think the biggest blocker is the payroll integration. What if we mock it for the demo?
+Jordan: Let's go with mocking the payroll API for the first release.
+Alex: Agreed. I'll write the onboarding copy by Wednesday.
+Sam: I can set up the staging environment by Thursday.
+Jordan: We should also add an FAQ page for new hires.
+Alex: Cool. Anything else? No? Great, thanks everyone.
