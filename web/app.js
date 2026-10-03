@@ -366,12 +366,12 @@ function esc(s) {
 
 // ---------------------------------------------------------------- built with (live status from /api/health)
 const TOOLS = [
-  { key: "photon", icon: "💬", name: "Photon Spectrum", what: "Keeper lives in your real iMessage group chat: tapbacks, threaded replies, voice notes.", prize: "Photon track" },
-  { key: "azure", icon: "🧠", name: "Azure OpenAI", what: "One small model call per burst of messages finds commitments, decisions and restated ideas.", prize: "Best Use of Azure by Avanade" },
-  { key: "elevenlabs", icon: "🎙️", name: "ElevenLabs", what: "Spoken recaps in the chat and here, plus meeting transcription that tells speakers apart.", prize: "[MLH] Best Use of ElevenLabs" },
-  { key: "tiger", icon: "🐯", name: "Tiger Data", what: "Every sprout and bloom is a time-series event; continuous aggregates draw the growth rings.", prize: "[MLH] Best Use of Tiger Data" },
-  { key: "adp", icon: "📋", name: "Meetings → next steps", what: "Messy meeting transcripts and recordings become owners, decisions and ideas.", prize: "AI for the Modern Enterprise by ADP" },
-  { key: "site", icon: "🌐", name: "DeepSpace + GoDaddy Registry", what: "This site is deployed on DeepSpace and served on our own domain.", prize: "Best Use of DeepSpace · [MLH] Best Domain Name" },
+  { key: "photon", icon: "💬", name: "Photon Spectrum", what: "Keeper lives in your real iMessage group chat: tapbacks, threaded replies, voice notes." },
+  { key: "azure", icon: "🧠", name: "Azure OpenAI", what: "One small model call per burst of messages finds commitments, decisions and restated ideas." },
+  { key: "elevenlabs", icon: "🎙️", name: "ElevenLabs", what: "Spoken recaps in the chat and here, plus meeting transcription that tells speakers apart." },
+  { key: "tiger", icon: "🐯", name: "Tiger Data", what: "Every sprout and bloom is a time-series event; continuous aggregates draw the growth rings." },
+  { key: "adp", icon: "📋", name: "Meetings → next steps", what: "Messy meeting transcripts and recordings become owners, decisions and ideas." },
+  { key: "site", icon: "🌐", name: "DeepSpace + GoDaddy Registry", what: "This site is deployed on DeepSpace and served on our own domain." },
 ];
 async function renderTools() {
   let live = {};
@@ -381,7 +381,7 @@ async function renderTools() {
   const on = { photon: live.photon, azure: live.azure, elevenlabs: live.elevenlabs, tiger: !!live.tiger, adp: true, site: true };
   $("tools").innerHTML = TOOLS.map(
     (t) =>
-      `<div class="tool"><b><span>${t.icon}</span>${t.name}${t.key in live || t.key === "adp" ? `<span class="pill ${on[t.key] ? "on" : "off"}">${on[t.key] ? "live" : "off"}</span>` : ""}</b><p>${t.what}</p><span class="prize">🏆 ${t.prize}</span></div>`,
+      `<div class="tool"><b><span>${t.icon}</span>${t.name}${t.key in live || t.key === "adp" ? `<span class="pill ${on[t.key] ? "on" : "off"}">${on[t.key] ? "live" : "off"}</span>` : ""}</b><p>${t.what}</p></div>`,
   ).join("");
   $("footTools").textContent = "Photon · Azure OpenAI · ElevenLabs · Tiger Data · DeepSpace · GoDaddy Registry";
 }

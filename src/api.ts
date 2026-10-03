@@ -158,7 +158,7 @@ export function startApi(deps: ApiDeps) {
   return server;
 }
 
-/** Which prize tools are switched on right now (shown on the website). */
+/** Which tools are switched on right now (shown on the website). */
 export function toolStatus(brain: Brain, tiger?: Tiger) {
   return {
     photon: true,
