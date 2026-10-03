@@ -7,8 +7,9 @@ Everything goes in `.env` (copy it from `.env.example`). **Never commit `.env`**
 | 1 | Photon Spectrum | The iMessage bot | Person A | Yes (for real iMessage) |
 | 2 | Azure OpenAI (or OpenAI) | The "brain" | Person B | Recommended (mock brain works without) |
 | 3 | ElevenLabs | Voice recaps, meeting transcription | Person B/C | Optional |
-| 4 | DeepSpace | Hosting the tree page | Person C | Optional (prize) |
-| 5 | GoDaddy Registry domain | Custom domain | Anyone | Optional (prize) |
+| 4 | Tiger Data | Growth history ("growth rings") | Person C | Optional (prize) |
+| 5 | DeepSpace | Hosting the website | Person C | Optional (prize) |
+| 6 | GoDaddy Registry domain | Where people type their tree code | Anyone | Optional (prize) |
 
 ## 1. Photon Spectrum (iMessage)
 
@@ -61,10 +62,32 @@ What it powers:
 - **＋ Meeting** on the tree page / `npm run meeting -- recording.m4a`: transcribes with **speaker separation** (diarization), so each sentence is credited to the right voice. This answers the "which voice belongs to who" problem: speakers show up as Speaker 1, Speaker 2, ...
 - iMessage voice notes get transcribed and remembered like text.
 
-## 4. DeepSpace
+## 4. Tiger Data (MLH prize)
+
+1. Sign up at https://console.cloud.timescale.com (Tiger Cloud, free tier).
+2. Create a service, then copy its connection string (`postgres://tsdbadmin:...@....tsdb.cloud.timescale.com:3xxxx/tsdb?sslmode=require`).
+3. `.env`: `TIGER_DATABASE_URL=...`
+4. Restart. The log should say `[tiger] connected (TimescaleDB hypertable + continuous aggregate)`.
+
+On first start Keeper creates everything itself:
+- `keeper_events`: a **hypertable** with one row per sprout, bloom or credit.
+- `keeper_growth_15m`: a **continuous aggregate** in 15-minute buckets, refreshed by a policy, with real-time results.
+- **Compression** for history older than 7 days.
+- A one-time backfill from `data/state.json`.
+
+The tree page's "Growth rings" chart reads from it, and shows "· Tiger Data" when it does. Without a key, the same chart is computed from memory.
+
+Show judges a query live:
+```sql
+SELECT bucket, event, n FROM keeper_growth_15m WHERE tree_id = 'MOSS-K7Q2XA' ORDER BY bucket;
+```
+
+Tested here against plain Postgres 16 (the fallback path). The TimescaleDB parts (hypertable, aggregate, compression) only run on Tiger Cloud, so check the startup log line there.
+
+## 5. DeepSpace
 
 See [DEPLOY.md](DEPLOY.md#deepspace). You need to log in with `npx deepspace auth login` (build credits come with the hackathon).
 
-## 5. GoDaddy Registry domain (MLH prize)
+## 6. GoDaddy Registry domain (MLH prize)
 
-Register a domain through the MLH GoDaddy Registry offer (e.g. a `.tech`, `.xyz` or similar like `keepergrove.xyz`). Point it at the tree page; see [DEPLOY.md](DEPLOY.md#custom-domain).
+Register a domain through the MLH GoDaddy Registry offer. Something that fits the theme works best, e.g. `keepergrove.xyz`, `findyourtree.tech` or `ourgrove.app`; MLH judges the name itself. Point it at the website (see [DEPLOY.md](DEPLOY.md#custom-domain)) and set `PUBLIC_URL=https://yourdomain` so `keeper code` replies link there.

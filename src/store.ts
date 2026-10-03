@@ -1,5 +1,6 @@
 // Memory: one JSON file you can open in VS Code (data/state.json).
 // Phone numbers are stored only as keys of `people`, never sent to the model or the API.
+import { randomInt } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -35,8 +36,10 @@ export interface Line {
 }
 
 export interface Chat {
-  id: string; // public id: "g1", "g2", ...
+  id: string; // internal short id: "g1", "g2", ... (not enough to view a tree)
+  code: string; // secret tree code people type on the website, e.g. "MOSS-K7Q2XA"
   title?: string;
+  isDm?: boolean; // 1:1 chats with Keeper are left out of groves
   people: Record<string, Person>; // key = platform sender id (may be a phone number)
   items: Item[];
   recent: Line[]; // rolling window the model sees as context; never exposed by the API
@@ -48,14 +51,31 @@ export interface Chat {
 export interface State {
   chats: Record<string, Chat>; // key = platform space id
   nextChat: number;
+  groveCodes: Record<string, string>; // key = platform sender id -> personal grove code ("GROVE-...")
 }
 
 const RECENT_MAX = 40;
+const WORDS = ["MOSS", "FERN", "OAK", "WILLOW", "ACORN", "IVY", "MAPLE", "BIRCH", "CEDAR", "PINE", "LILY", "SAGE", "ROWAN", "ASPEN", "CLOVER", "THYME"];
+const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+
+/** Unguessable, easy to read aloud: "MOSS-K7Q2XA" (~10^9 combinations per word). */
+export function newCode(prefix?: string): string {
+  let tail = "";
+  for (let i = 0; i < 6; i++) tail += ALPHABET[randomInt(ALPHABET.length)];
+  return `${prefix ?? WORDS[randomInt(WORDS.length)]}-${tail}`;
+}
+
+/** Accepts " moss k7q2xa ", "moss-k7q2xa", etc. */
+export function normalizeCode(raw: string): string {
+  const s = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const m = s.match(/^([A-Z]+?)([A-Z0-9]{6})$/);
+  return m ? `${m[1]}-${m[2]}` : s;
+}
 
 export class Store {
   state: State;
   constructor(private file?: string) {
-    this.state = { chats: {}, nextChat: 1 };
+    this.state = { chats: {}, nextChat: 1, groveCodes: {} };
     if (file) {
       try {
         this.state = JSON.parse(readFileSync(file, "utf8"));
@@ -63,6 +83,9 @@ export class Store {
         // first run
       }
     }
+    // upgrade older state files
+    this.state.groveCodes ??= {};
+    for (const c of Object.values(this.state.chats)) c.code ??= newCode();
   }
 
   save() {
@@ -78,6 +101,7 @@ export class Store {
     if (!c) {
       c = {
         id: `g${this.state.nextChat++}`,
+        code: newCode(),
         people: {},
         items: [],
         recent: [],
@@ -89,8 +113,26 @@ export class Store {
     return c;
   }
 
-  chatByPublicId(id: string): Chat | undefined {
+  chatById(id: string): Chat | undefined {
     return Object.values(this.state.chats).find((c) => c.id === id);
+  }
+
+  chatByCode(code: string): Chat | undefined {
+    const want = normalizeCode(code);
+    return Object.values(this.state.chats).find((c) => c.code === want);
+  }
+
+  /** A person's personal grove code (created on first ask). Shows every tree they're part of. */
+  groveCode(senderKey: string): string {
+    return (this.state.groveCodes[senderKey] ??= newCode("GROVE"));
+  }
+
+  /** All chats a grove code's owner is a member of. */
+  groveByCode(code: string): Chat[] | undefined {
+    const want = normalizeCode(code);
+    const owner = Object.entries(this.state.groveCodes).find(([, c]) => c === want)?.[0];
+    if (!owner) return undefined;
+    return Object.values(this.state.chats).filter((c) => c.people[owner] && !c.isDm);
   }
 
   person(chat: Chat, senderKey: string): Person {

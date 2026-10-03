@@ -2,7 +2,7 @@
 // recording into the same commitments / decisions / ideas, credited to speakers.
 import type { Brain } from "./brain.ts";
 import type { Rules } from "./config.ts";
-import { Keeper, type Outbox } from "./keeper.ts";
+import { Keeper, type KeeperEvent, type Outbox } from "./keeper.ts";
 import type { Store } from "./store.ts";
 import type { Turn } from "./elevenlabs.ts";
 
@@ -29,13 +29,14 @@ export async function ingestMeeting(
   title: string,
   turns: Turn[],
   now: () => number = Date.now,
-): Promise<{ id: string; added: number }> {
+  onEvent?: (e: KeeperEvent) => void,
+): Promise<{ code: string; title: string; added: number }> {
   const spaceKey = `meeting:${now()}:${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}`;
   const chat = store.chat(spaceKey);
   chat.title = title || "Meeting";
   const before = chat.items.length;
   // a strict "silent" keeper: no unprompted messages, flushes every 12 turns
-  const keeper = new Keeper({ store, brain, outbox: silent, rules: { ...rules, burstMs: 0, unpromptedDailyMax: 0 }, now });
+  const keeper = new Keeper({ store, brain, outbox: silent, rules: { ...rules, burstMs: 0, unpromptedDailyMax: 0 }, now, onEvent });
   let n = 0;
   for (const t of turns) {
     const pretty = /^speaker_(\d+)$/.exec(t.speaker);
@@ -46,5 +47,5 @@ export async function ingestMeeting(
   await keeper.flush(spaceKey);
   for (const it of chat.items.slice(before)) it.source = "meeting";
   store.save();
-  return { id: chat.id, added: chat.items.length - before };
+  return { code: chat.code, title: chat.title, added: chat.items.length - before };
 }

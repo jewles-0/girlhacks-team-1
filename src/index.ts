@@ -10,12 +10,17 @@ import { config } from "./config.ts";
 import { elevenlabsEnabled, transcribe, tts } from "./elevenlabs.ts";
 import { Keeper, type Outbox } from "./keeper.ts";
 import { Store } from "./store.ts";
+import { Tiger } from "./tiger.ts";
 
 const mode = (process.argv[2] ?? "imessage") as "imessage" | "local" | "terminal" | "api-only";
 const store = new Store(config.dataFile);
 const brain = makeBrain();
-const api = startApi(store, brain);
-console.log(`[keeper] mode=${mode} brain=${brain.name} voice=${elevenlabsEnabled() ? "elevenlabs" : "off"}`);
+const tiger = config.tigerUrl ? await Tiger.connect(config.tigerUrl) : undefined;
+await tiger?.backfill(store).catch((e) => console.error("[tiger] backfill failed:", e.message));
+const api = startApi({ store, brain, tiger });
+console.log(`[keeper] mode=${mode} brain=${brain.name} voice=${elevenlabsEnabled() ? "elevenlabs" : "off"} history=${tiger ? "tiger" : "memory"}`);
+// Local convenience only: the codes are secrets, so they're printed here, never served by the API.
+for (const c of Object.values(store.state.chats)) console.log(`[keeper] tree ${c.code}  ${c.title ?? (c.isDm ? "(1:1 chat)" : c.id)}  ${config.publicUrl}/?code=${c.code}`);
 
 if (mode !== "api-only") await runBot();
 
@@ -38,7 +43,16 @@ async function runBot() {
     },
   };
 
-  const keeper = new Keeper({ store, brain, outbox, rules: config.rules, tts, log: (m) => console.log(`[keeper] ${m}`) });
+  const keeper = new Keeper({
+    store,
+    brain,
+    outbox,
+    rules: config.rules,
+    tts,
+    log: (m) => console.log(`[keeper] ${m}`),
+    onEvent: (e) => tiger?.record(e),
+    publicUrl: config.publicUrl,
+  });
   const ticker = setInterval(() => void keeper.tick().catch((e) => console.error("[tick]", e)), 30_000);
 
   const shutdown = async () => {
@@ -46,6 +60,7 @@ async function runBot() {
     await keeper.flushAll().catch(() => {});
     store.save();
     api.close();
+    await tiger?.close().catch(() => {});
     await app.stop().catch(() => {});
     process.exit(0);
   };
@@ -55,6 +70,16 @@ async function runBot() {
   for await (const [space, message] of app.messages) {
     try {
       if (message.direction !== "inbound" || message.sender?.kind === "agent") continue;
+      if (!spaces.has(space.id) && (space as { type?: string }).type === "group") {
+        // name the tree after the group chat (best-effort; "keeper name ..." overrides)
+        space
+          .getDisplayName()
+          .then((n) => {
+            const chat = store.chat(space.id);
+            if (n && !chat.title) (chat.title = n.slice(0, 40)), store.save();
+          })
+          .catch(() => {});
+      }
       spaces.set(space.id, space);
       let text: string | undefined;
       const c = message.content;

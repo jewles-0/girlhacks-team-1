@@ -8,6 +8,7 @@ import { transcribe } from "./elevenlabs.ts";
 import { listOpen } from "./keeper.ts";
 import { ingestMeeting, parseTranscript } from "./meeting.ts";
 import { Store } from "./store.ts";
+import { Tiger } from "./tiger.ts";
 
 const [file, title = "Meeting"] = process.argv.slice(2);
 if (!file) {
@@ -20,6 +21,8 @@ const turns = AUDIO[ext] ? await transcribe(readFileSync(file), file, AUDIO[ext]
 console.log(`${turns.length} turns from ${new Set(turns.map((t) => t.speaker)).size} speakers`);
 
 const store = new Store(config.dataFile);
-const { id, added } = await ingestMeeting(store, makeBrain(), config.rules, title, turns);
-console.log(`saved as ${id} (${added} items). Tree: http://localhost:${config.api.port}/?chat=${id}\n`);
-console.log(listOpen(store.chatByPublicId(id)!));
+const tiger = config.tigerUrl ? await Tiger.connect(config.tigerUrl) : undefined;
+const { code, added } = await ingestMeeting(store, makeBrain(), config.rules, title, turns, Date.now, (e) => tiger?.record(e));
+console.log(`saved ${added} items. Tree code: ${code}  ->  ${config.publicUrl}/?code=${code}\n`);
+console.log(listOpen(store.chatByCode(code)!));
+await tiger?.close();

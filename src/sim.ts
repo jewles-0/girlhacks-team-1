@@ -59,6 +59,9 @@ await keeper.flushAll();
 console.log(`\n${c.dim}--- final memory ---${c.reset}\n${listOpen(store.chat(spaceKey))}`);
 if (save) {
   store.chat(spaceKey).title ??= file.replace(/^.*\//, "").replace(/\.txt$/, "");
+  // demo helper: everyone in a scenario gets a personal grove code (the same name across scenarios = the same person)
+  const groves = Object.entries(store.chat(spaceKey).people).map(([key, p]) => `${p.name}: ${store.groveCode(key)}`);
   store.save();
-  console.log(`\nsaved to ${config.dataFile} as ${store.chat(spaceKey).id}`);
+  console.log(`grove codes (all trees each person is in): ${groves.join(", ")}`);
+  console.log(`\nsaved to ${config.dataFile}. Tree code: ${store.chat(spaceKey).code}  ->  ${config.publicUrl}/?code=${store.chat(spaceKey).code}`);
 }

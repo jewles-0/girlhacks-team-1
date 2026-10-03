@@ -49,6 +49,10 @@ export const config = {
     host: env("API_HOST", "127.0.0.1"),
     corsOrigins: env("CORS_ORIGINS", "*").split(",").map((s) => s.trim()),
   },
+  // Where people open their tree, e.g. your GoDaddy domain "https://keepergrove.xyz"
+  publicUrl: env("PUBLIC_URL", "http://127.0.0.1:8787").replace(/\/$/, ""),
+  // Tiger Data (TimescaleDB / Postgres) connection string. Optional: growth history over time.
+  tigerUrl: env("TIGER_DATABASE_URL"),
   dataFile: env("DATA_FILE", "data/state.json"),
 };
 

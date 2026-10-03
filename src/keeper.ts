@@ -21,6 +21,15 @@ export interface Outbox {
   sendVoice?(spaceKey: string, audio: Buffer, replyTo?: unknown): Promise<void>;
 }
 
+/** Something happened to an item (for growth history in Tiger Data). */
+export interface KeeperEvent {
+  treeId: string; // the tree code (unique, never reused)
+  itemId: string;
+  kind: Item["kind"];
+  event: "created" | "done" | "dropped" | "reopened" | "credited";
+  at: number;
+}
+
 export interface KeeperDeps {
   store: Store;
   brain: Brain;
@@ -29,6 +38,8 @@ export interface KeeperDeps {
   now?: () => number;
   tts?: (text: string) => Promise<Buffer | undefined>;
   log?: (msg: string) => void;
+  onEvent?: (e: KeeperEvent) => void;
+  publicUrl?: string; // where the tree page lives, for "keeper code"
 }
 
 interface Pending {
@@ -42,7 +53,8 @@ const PHONE_RE = /\+?\d[\d\s().-]{6,}\d/g;
 
 export const HELP = [
   "I'm Keeper 🌱 I stay quiet and remember who committed to what, what we decided, and whose idea it was.",
-  "keeper list · keeper done 3 · keeper recap (or recap voice) · keeper call me <name> · keeper quiet 30m · keeper unquiet · keeper me · keeper forget everything",
+  "keeper list · keeper done 3 · keeper recap (or recap voice) · keeper code (see your tree) · keeper name <tree name> · keeper call me <name> · keeper quiet 30m · keeper unquiet · keeper forget everything",
+  "Text me 1:1: keeper me (your stats) · keeper grove (all your trees)",
   "Or just ask: keeper what's still open?",
 ].join("\n");
 
@@ -62,6 +74,7 @@ export class Keeper {
     const chat = store.chat(m.spaceKey);
     const person = store.person(chat, m.senderKey);
     if (m.senderName && !person.name) person.name = m.senderName;
+    if (m.isGroup !== undefined) chat.isDm = !m.isGroup;
     const text = m.text.trim();
     if (!text) return;
 
@@ -118,6 +131,14 @@ export class Keeper {
     return out;
   }
 
+  private emit(chat: Chat, item: Item, event: KeeperEvent["event"]) {
+    try {
+      this.d.onEvent?.({ treeId: chat.code, itemId: item.id, kind: item.kind, event, at: this.now() });
+    } catch {
+      // history is best-effort; never break the chat over it
+    }
+  }
+
   private pendingFor(spaceKey: string): Pending {
     let p = this.pending.get(spaceKey);
     if (!p) this.pending.set(spaceKey, (p = { lines: [] }));
@@ -142,6 +163,7 @@ export class Keeper {
       if (dup) continue;
       const item = store.addItem(chat, { kind: it.kind, text: scrub(it.text), from: it.from, owner, due: it.due, source: "chat" }, now);
       this.log(`${chat.id} + ${item.kind} ${item.id} "${item.text}" from ${item.from}`);
+      this.emit(chat, item, "created");
       toLike.add(it.msg ?? p.lines.length);
     }
 
@@ -152,6 +174,7 @@ export class Keeper {
       item.status = u.status;
       item.updatedAt = now;
       this.log(`${chat.id} ~ ${item.id} -> ${u.status}`);
+      this.emit(chat, item, u.status);
       toLike.add(p.lines.length);
     }
 
@@ -167,6 +190,7 @@ export class Keeper {
       item.updatedAt = now;
       await outbox.send(spaceKey, msg);
       this.log(`${chat.id} credit ${item.id} -> ${item.from}`);
+      this.emit(chat, item, "credited");
     }
 
     // Silent acknowledgement: one tapback per message that produced memory.
@@ -226,6 +250,7 @@ export class Keeper {
       if (!item) return void (await say(`I don't have #${r[2]}.`)), true;
       item.status = r[1] === "done" ? "done" : r[1] === "drop" ? "dropped" : "open";
       item.updatedAt = this.now();
+      this.emit(chat, item, item.status === "open" ? "reopened" : item.status);
       await outbox.react(m.spaceKey, m.ref, LIKE).catch(() => {});
       return true;
     }
@@ -249,6 +274,26 @@ export class Keeper {
     if ((r = rest.match(/^call me\s+(.{1,30})$/i))) {
       me.name = r[1]!.replace(/[^\p{L}\p{N} .'-]/gu, "").trim() || me.name;
       await outbox.react(m.spaceKey, m.ref, LIKE).catch(() => {});
+      return true;
+    }
+    if ((r = rest.match(/^name (?:our tree |this tree |the tree |this chat )?(.{1,40})$/i))) {
+      chat.title = r[1]!.replace(/[^\p{L}\p{N}\p{Emoji} .,'&!-]/gu, "").trim() || chat.title;
+      await outbox.react(m.spaceKey, m.ref, LIKE).catch(() => {});
+      return true;
+    }
+    if (/^(code|tree|link|our tree|website|site)$/.test(low)) {
+      const url = this.d.publicUrl ? `\n${this.d.publicUrl}/?code=${chat.code}` : "";
+      await say(`Your tree code is ${chat.code} 🌳 Anyone in this chat can open it:${url}`);
+      return true;
+    }
+    if (/^(grove|my grove|my code|my trees|forest)$/.test(low)) {
+      if (m.isGroup) {
+        await say("Your grove shows every chat you're in, so it's private. Text me 1:1 \"keeper grove\" and I'll send your code there.");
+        return true;
+      }
+      const code = store.groveCode(m.senderKey);
+      const url = this.d.publicUrl ? `\n${this.d.publicUrl}/?code=${code}` : "";
+      await say(`Your personal grove code is ${code} ✨ It shows every tree you're part of. Keep it to yourself.${url}`);
       return true;
     }
     if (/^(me|my stuff|stats|mine)$/.test(low)) {

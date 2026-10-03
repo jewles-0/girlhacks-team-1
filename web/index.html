@@ -4,59 +4,113 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Keeper Grove</title>
+<!-- If this page is hosted somewhere other than the bot (DeepSpace, your domain), put the bot's public URL here. -->
+<meta name="keeper-api" content="" />
+<meta name="description" content="Type your chat's tree code to see every commitment, decision and idea your group planted." />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <div id="fireflies" aria-hidden="true"></div>
 
 <header>
-  <div class="brand">
+  <a class="brand" href="./" id="homeLink">
     <span class="logo">🌳</span>
-    <div>
-      <h1>Keeper Grove</h1>
-      <p class="sub">Every commitment, decision and idea, and who planted it.</p>
-    </div>
-  </div>
-  <div class="controls">
-    <label>Grove <select id="chatPicker"></select></label>
-    <button id="recapBtn" title="Hear a spoken recap (ElevenLabs)">🔊 Recap</button>
+    <span>
+      <span class="wordmark">Keeper Grove</span>
+      <span class="sub">Every commitment, decision and idea, and who planted it.</span>
+    </span>
+  </a>
+  <nav class="controls" id="nav" hidden>
+    <button id="groveBtn" hidden>🌲 My grove</button>
+    <button id="recapBtn" hidden title="Hear a spoken recap (ElevenLabs)">🔊 Recap</button>
     <button id="meetingBtn" title="Add a meeting transcript or recording">＋ Meeting</button>
-  </div>
+  </nav>
 </header>
 
-<main>
-  <section class="treeWrap">
-    <svg id="tree" viewBox="0 90 800 570" role="img" aria-label="Tree of the group's memory"></svg>
-    <div id="tooltip" hidden></div>
-    <div id="empty" hidden>
-      <p>No groves yet 🌱</p>
-      <p class="muted">Add Keeper to a group chat, run <code>npm run terminal</code>, or add a meeting.</p>
+<!-- ============ GATE: enter a code ============ -->
+<section id="gate" class="view">
+  <div class="gateCard">
+    <h1>Find your tree</h1>
+    <p class="lead">Every group chat with Keeper grows its own tree. Enter your chat's code to see it.</p>
+    <form id="codeForm" autocomplete="off">
+      <label class="sr" for="codeInput">Tree or grove code</label>
+      <input id="codeInput" placeholder="MOSS-K7Q2XA" maxlength="24" spellcheck="false" autocapitalize="characters" />
+      <button class="primary" type="submit">Open 🌱</button>
+    </form>
+    <p id="codeError" class="error" role="alert"></p>
+    <p class="hint">No code yet? Text <code>keeper code</code> in your group chat. For all your trees at once, text Keeper 1:1: <code>keeper grove</code>.</p>
+    <div id="saved" hidden>
+      <h2>Your trees on this device</h2>
+      <div id="savedList" class="chips"></div>
     </div>
-    <div class="legend">
-      <span><i class="dot leaf"></i>Commitment</span>
-      <span><i class="dot flower"></i>Decision</span>
-      <span><i class="dot seed"></i>Idea</span>
-      <span><i class="dot done"></i>Done</span>
-    </div>
+  </div>
+
+  <section class="how">
+    <div><span>💬</span><b>Chat like normal</b><p>Keeper sits quietly in your iMessage group. A 👍 means it remembered something.</p></div>
+    <div><span>🌳</span><b>Watch it grow</b><p>Each person is a branch. Leaves are tasks, flowers are decisions, glowing seeds are ideas.</p></div>
+    <div><span>✨</span><b>Credit stays fair</b><p>When someone's idea gets restated, Keeper credits whoever said it first.</p></div>
+    <div><span>🌲</span><b>Many chats, one grove</b><p>In more than one group? Your trees grow together into an enchanted grove.</p></div>
   </section>
 
-  <aside>
-    <div class="stats" id="stats"></div>
-    <div id="lists"></div>
-    <p class="privacy">🔒 This page never shows phone numbers or message text.</p>
-  </aside>
-</main>
+  <section class="builtWith" aria-labelledby="bwTitle">
+    <h2 id="bwTitle">Built with</h2>
+    <div class="tools" id="tools"></div>
+  </section>
+</section>
+
+<!-- ============ GROVE: many trees ============ -->
+<section id="grove" class="view" hidden>
+  <div class="groveHead">
+    <h1 id="groveTitle">Your Enchanted Grove</h1>
+    <p class="lead" id="groveSub"></p>
+  </div>
+  <div id="groveTrees" class="groveTrees"></div>
+  <div class="groveGround" aria-hidden="true"></div>
+</section>
+
+<!-- ============ TREE: one chat ============ -->
+<section id="treeView" class="view" hidden>
+  <main>
+    <section class="treeWrap">
+      <h1 id="treeTitle" class="treeTitle"></h1>
+      <svg id="tree" viewBox="0 90 800 570" role="img" aria-label="Tree of the group's memory"></svg>
+      <div id="tooltip" hidden></div>
+      <div class="legend">
+        <span><i class="dot leaf"></i>Commitment</span>
+        <span><i class="dot flower"></i>Decision</span>
+        <span><i class="dot seed"></i>Idea</span>
+        <span><i class="dot done"></i>Done</span>
+      </div>
+    </section>
+    <aside>
+      <div class="stats" id="stats"></div>
+      <div class="rings">
+        <h3>Growth rings <span class="src" id="growthSrc"></span></h3>
+        <svg id="growth" viewBox="0 0 300 90" role="img" aria-label="Items planted and finished over time"></svg>
+      </div>
+      <div id="lists"></div>
+      <p class="privacy">🔒 Only people with this code can see this tree. It never shows phone numbers or message text.</p>
+    </aside>
+  </main>
+</section>
+
+<footer>
+  <span>🌱 Seed · GirlHacks 2026</span>
+  <span class="muted" id="footTools"></span>
+</footer>
 
 <dialog id="meetingDialog">
   <form method="dialog" id="meetingForm">
     <h2>Plant a meeting</h2>
-    <p class="muted">Paste a transcript (<code>Name: what they said</code>) or upload a recording. Recordings are transcribed by ElevenLabs with speaker separation.</p>
-    <label>Title <input name="title" value="Team meeting" /></label>
-    <label>Transcript <textarea name="transcript" rows="8" placeholder="Alex: I'll write the onboarding copy by Wednesday&#10;Sam: what if we mock the payroll API?"></textarea></label>
+    <p class="muted">Paste a transcript (<code>Name: what they said</code>) or upload a recording. ElevenLabs transcribes it and separates the speakers, then Keeper pulls out who's doing what.</p>
+    <label>Title <input name="title" value="Team meeting" maxlength="60" /></label>
+    <label>Transcript <textarea name="transcript" rows="7" placeholder="Alex: I'll write the onboarding copy by Wednesday&#10;Sam: what if we mock the payroll API?"></textarea></label>
     <label>…or recording <input type="file" name="audio" accept="audio/*,video/mp4" /></label>
-    <label>Access token (if set) <input name="token" type="password" autocomplete="off" /></label>
-    <p id="meetingStatus" class="muted"></p>
+    <label>Access token (if your team set one) <input name="token" type="password" autocomplete="off" /></label>
+    <p id="meetingStatus" class="muted" role="status"></p>
     <div class="row">
       <button value="cancel" formnovalidate>Cancel</button>
       <button id="meetingSubmit" value="default" class="primary">Plant it 🌱</button>

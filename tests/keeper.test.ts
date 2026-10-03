@@ -6,7 +6,9 @@ import { type Brain, type BrainInput, type BrainOutput, MockBrain, parseBrainOut
 import { wordsToTurns } from "../src/elevenlabs.ts";
 import { Keeper, type Outbox } from "../src/keeper.ts";
 import { ingestMeeting, parseTranscript } from "../src/meeting.ts";
-import { Store } from "../src/store.ts";
+import { normalizeCode, Store } from "../src/store.ts";
+import { growthFromMemory } from "../src/tiger.ts";
+import type { KeeperEvent } from "../src/keeper.ts";
 
 const RULES = { burstMs: 0, minConfidence: 0.75, unpromptedDailyMax: 6, unpromptedCooldownMs: 0, resurfaceAfterMs: 60_000 };
 const PRIYA = "+15551230001";
@@ -146,7 +148,7 @@ test("cooldown between unprompted messages", async () => {
 
 test("commands never call the model", async () => {
   const t = setup();
-  for (const c of ["keeper help", "keeper list", "keeper quiet 10m", "keeper unquiet", "keeper call me Priya", "keeper recap", "keeper done 1"]) {
+  for (const c of ["keeper help", "keeper list", "keeper quiet 10m", "keeper unquiet", "keeper call me Priya", "keeper recap", "keeper done 1", "keeper code", "keeper name Team Seed"]) {
     await t.say(PRIYA, c);
   }
   await t.keeper.flushAll();
@@ -239,9 +241,69 @@ test("meeting transcripts and diarized audio become credited items", async () =>
   ]);
   assert.deepEqual(diarized.map((x) => x.speaker), ["speaker_0", "speaker_1"]);
   const store = new Store();
-  const { id, added } = await ingestMeeting(store, new MockBrain(), RULES, "Sync", turns);
+  const { code, added } = await ingestMeeting(store, new MockBrain(), RULES, "Sync", turns);
   assert.equal(added, 2);
-  const pub = publicChat(store.chatByPublicId(id)!);
+  const pub = publicChat(store.chatByCode(code)!);
   assert.deepEqual(pub.items.map((i) => i.from).sort(), ["Alex", "Sam"]);
   assert.ok(pub.items.every((i) => i.source === "meeting"));
+});
+
+test("tree codes are readable, unique per chat, and forgiving to type", () => {
+  const store = new Store();
+  const a = store.chat("a");
+  const b = store.chat("b");
+  assert.match(a.code, /^[A-Z]+-[A-HJ-NP-Z2-9]{6}$/);
+  assert.notEqual(a.code, b.code);
+  assert.equal(normalizeCode(` ${a.code.toLowerCase().replace("-", " ")} `), a.code);
+  assert.equal(store.chatByCode(a.code.toLowerCase())?.code, a.code);
+  assert.equal(store.chatByCode("MOSS-AAAAAA"), undefined);
+});
+
+test("keeper code shares the tree code; keeper grove is only sent 1:1", async () => {
+  const t = setup();
+  await t.say(PRIYA, "keeper code");
+  assert.match(t.sent[0]!.text, new RegExp(t.chat().code));
+  await t.say(PRIYA, "keeper grove");
+  assert.doesNotMatch(t.sent[1]!.text, /GROVE-/);
+  await t.keeper.receive({ spaceKey: "dm", senderKey: PRIYA, text: "keeper grove", isGroup: false, ref: "dm" });
+  assert.match(t.sent[2]!.text, /GROVE-[A-Z0-9]{6}/);
+});
+
+test("a grove holds every group tree the person is in, and nobody else's", async () => {
+  const store = new Store();
+  const add = (space: string, who: string) => {
+    const c = store.chat(space);
+    store.person(c, who);
+    return c;
+  };
+  add("team", PRIYA);
+  add("club", PRIYA);
+  add("other", JAKE);
+  store.chat("dm").isDm = true;
+  store.person(store.chat("dm"), PRIYA);
+  const grove = store.groveByCode(store.groveCode(PRIYA))!;
+  assert.deepEqual(grove.map((c) => c.id).sort(), [store.chat("club").id, store.chat("team").id].sort());
+  assert.equal(store.groveByCode("GROVE-AAAAAA"), undefined);
+});
+
+test("growth history: events are emitted and rings are cumulative", async () => {
+  const events: KeeperEvent[] = [];
+  let clock = 0;
+  const store = new Store();
+  const keeper = new Keeper({
+    store,
+    brain: new FakeBrain({ items: [{ kind: "commitment", text: "slides", from: "P1", owner: "P1", confidence: 0.9 }] }),
+    outbox: { react: async () => {}, send: async () => {} },
+    rules: RULES,
+    now: () => clock,
+    onEvent: (e) => events.push(e),
+  });
+  await keeper.receive({ spaceKey: "c", senderKey: PRIYA, text: "I'll do slides", isGroup: true });
+  await keeper.flushAll();
+  clock = 60 * 60_000;
+  await keeper.receive({ spaceKey: "c", senderKey: PRIYA, text: "keeper done 1", isGroup: true });
+  assert.deepEqual(events.map((e) => e.event), ["created", "done"]);
+  assert.equal(events[0]!.treeId, store.chat("c").code);
+  const g = growthFromMemory(store.chat("c"));
+  assert.deepEqual(g.points.map((p) => [p.planted, p.bloomed]), [[1, 0], [1, 1]]);
 });

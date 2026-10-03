@@ -17,23 +17,24 @@ az webapp config appsettings set -n keeper-bot -g keeper-rg --settings PROJECT_I
 az webapp config set -n keeper-bot -g keeper-rg --startup-file "npm start" --always-on true
 ```
 
-## Share the tree page
+## Share the website
 
-The bot serves the tree page itself at `http://127.0.0.1:8787`. To reach it from other devices, open a public tunnel:
+The bot serves the website itself at `http://127.0.0.1:8787`. To reach it from other devices, open a public tunnel:
 ```bash
 npx cloudflared tunnel --url http://localhost:8787
 ```
-That prints an `https://....trycloudflare.com` URL. If someone can reach the API, they can read the tree data. That data has no phone numbers or message text, but it does include task text and names. Set `INGEST_TOKEN=some-secret` in `.env` so only your team can upload meetings.
+That prints an `https://....trycloudflare.com` URL. Trees can only be opened with their code, and wrong guesses are rate-limited. Set `INGEST_TOKEN=some-secret` in `.env` so only your team can upload meetings.
 
 ## DeepSpace
 
-DeepSpace hosts apps on `<name>.app.space` (Cloudflare Workers). The bot needs a long-running process, so it stays on the laptop or Azure. DeepSpace hosts the **tree page**, which reads data from the bot's API.
+DeepSpace hosts apps on `<name>.app.space` (Cloudflare Workers). The bot needs a long-running process, so it stays on the laptop or Azure. DeepSpace hosts the **website** (code entry, tree, grove), which reads data from the bot's API.
 
 ```bash
 npx create-deepspace keeper-grove
 cd keeper-grove
 npx deepspace auth login
 mkdir -p public/grove && cp ../web/* public/grove/
+# edit public/grove/index.html: <meta name="keeper-api" content="https://<your-bot-url>"> (or pass ?api= in the URL)
 npm run dev        # http://localhost:.../grove/?api=https://<your-tunnel>.trycloudflare.com
 npm run deploy     # https://keeper-grove.app.space/grove/?api=https://<your-tunnel>
 ```
@@ -43,7 +44,14 @@ To compete for "Best Use of DeepSpace" (stretch goal): use DeepSpace's auth so o
 
 ## Custom domain
 
-Point your GoDaddy Registry domain at the DeepSpace app (custom domain setting in DeepSpace), or at the Azure web app (`az webapp config hostname add`). The simplest option is a forwarding record to the `app.space` URL.
+The domain is the front door: someone types `keepergrove.xyz`, enters their chat's code, and sees their tree or grove.
+
+1. Point the GoDaddy Registry domain at wherever the website runs:
+   - DeepSpace: add it as a custom domain in DeepSpace and create the DNS record it asks for.
+   - Azure web app: `az webapp config hostname add --webapp-name keeper-bot -g keeper-rg --hostname keepergrove.xyz`.
+   - Quickest: domain forwarding to `https://keeper-grove.app.space/grove/?api=https://<bot-url>`.
+2. Set `PUBLIC_URL=https://keepergrove.xyz` in the bot's `.env` (add `/grove` if you used the DeepSpace path), so `keeper code` replies link to it.
+3. If the website and bot are on different hosts, add the domain to `CORS_ORIGINS`.
 
 ## Demo settings
 

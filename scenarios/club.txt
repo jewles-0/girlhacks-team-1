@@ -1,0 +1,11 @@
+# A second group chat (club board) with some of the same people, for the grove demo.
+Priya: I'll book the room for the info session by Monday
+Dana: what if we do a boba social after the info session
+Leo: let's go with Thursday at 6 for the info session
+---
+Dana: I'll make the flyer by Sunday
+---
+@wait 20
+Dana: the flyer is done
+---
+Priya: keeper name Women in CS board

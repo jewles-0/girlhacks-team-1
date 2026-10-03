@@ -1,4 +1,5 @@
 // Read-only data for the tree page, plus meeting upload (ADP) and voice recap (ElevenLabs).
+// Trees are only reachable with their secret code; there is no "list everything" endpoint.
 // Never returns phone numbers or raw message text.
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -10,6 +11,7 @@ import { elevenlabsEnabled, transcribe, tts } from "./elevenlabs.ts";
 import { recap } from "./keeper.ts";
 import { ingestMeeting, parseTranscript } from "./meeting.ts";
 import { type Chat, nameOf, type Store } from "./store.ts";
+import { growthFromMemory, type Tiger } from "./tiger.ts";
 
 const WEB_DIR = join(import.meta.dirname, "..", "web");
 const MIME: Record<string, string> = {
@@ -25,7 +27,7 @@ const MAX_UPLOAD = 25 * 1024 * 1024;
 export function publicChat(chat: Chat) {
   const total = Object.values(chat.people).reduce((s, p) => s + p.words, 0);
   return {
-    id: chat.id,
+    code: chat.code,
     title: chat.title ?? null,
     people: Object.values(chat.people).map((p) => ({ alias: p.alias, name: p.name ?? null })),
     items: chat.items.map((i) => ({
@@ -53,8 +55,25 @@ export function publicChat(chat: Chat) {
   };
 }
 
-export function startApi(store: Store, brain: Brain) {
+export interface ApiDeps {
+  store: Store;
+  brain: Brain;
+  tiger?: Tiger;
+}
+
+export function startApi({ store, brain, tiger }: ApiDeps) {
   const audioCache = new Map<string, Buffer>();
+  const misses = new Map<string, { n: number; reset: number }>();
+
+  /** Slow down anyone guessing codes: 20 wrong codes per minute per IP. */
+  const tooManyMisses = (req: IncomingMessage, miss: boolean) => {
+    const ip = String(req.headers["cf-connecting-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0]!.trim();
+    const now = Date.now();
+    let m = misses.get(ip);
+    if (!m || m.reset < now) misses.set(ip, (m = { n: 0, reset: now + 60_000 }));
+    if (miss) m.n++;
+    return m.n > 20;
+  };
 
   const server = createServer(async (req, res) => {
     try {
@@ -63,24 +82,39 @@ export function startApi(store: Store, brain: Brain) {
       const url = new URL(req.url ?? "/", "http://x");
       const path = url.pathname;
 
-      if (req.method === "GET" && path === "/api/health") return json(res, { ok: true, brain: brain.name, voice: elevenlabsEnabled() });
-      if (req.method === "GET" && path === "/api/chats") {
-        return json(
-          res,
-          Object.values(store.state.chats).map((c) => ({ id: c.id, title: c.title ?? null, items: c.items.length })),
-        );
+      if (req.method === "GET" && path === "/api/health") {
+        return json(res, { ok: true, tools: toolStatus(brain, tiger) });
       }
-      let m = path.match(/^\/api\/chats\/([a-z0-9]+)$/);
+
+      // A code can be a tree code (one chat) or a personal grove code (every chat you're in).
+      let m = path.match(/^\/api\/lookup\/([A-Za-z0-9 -]{4,40})$/);
       if (req.method === "GET" && m) {
-        const chat = store.chatByPublicId(m[1]!);
-        return chat ? json(res, publicChat(chat)) : json(res, { error: "not found" }, 404);
+        if (tooManyMisses(req, false)) return json(res, { error: "too many tries, wait a minute" }, 429);
+        const code = decodeURIComponent(m[1]!);
+        const chat = store.chatByCode(code);
+        if (chat) return json(res, { type: "tree", trees: [publicChat(chat)] });
+        const grove = store.groveByCode(code);
+        if (grove) return json(res, { type: "grove", trees: grove.map(publicChat) });
+        tooManyMisses(req, true);
+        return json(res, { error: "No tree with that code. Text \"keeper code\" in your group chat to get it." }, 404);
       }
-      m = path.match(/^\/api\/chats\/([a-z0-9]+)\/recap(\.mp3)?$/);
+
+      m = path.match(/^\/api\/trees\/([A-Za-z0-9-]{4,40})(\/growth|\/recap|\/recap\.mp3)?$/);
       if (req.method === "GET" && m) {
-        const chat = store.chatByPublicId(m[1]!);
-        if (!chat) return json(res, { error: "not found" }, 404);
+        if (tooManyMisses(req, false)) return json(res, { error: "too many tries, wait a minute" }, 429);
+        const chat = store.chatByCode(m[1]!);
+        if (!chat) {
+          tooManyMisses(req, true);
+          return json(res, { error: "not found" }, 404);
+        }
+        const sub = m[2];
+        if (!sub) return json(res, publicChat(chat));
+        if (sub === "/growth") {
+          const growth = tiger ? await tiger.growth(chat.code).catch(() => growthFromMemory(chat)) : growthFromMemory(chat);
+          return json(res, growth);
+        }
         const text = recap(chat);
-        if (!m[2]) return json(res, { text });
+        if (sub === "/recap") return json(res, { text });
         if (!elevenlabsEnabled()) return json(res, { error: "ELEVENLABS_API_KEY not set", text }, 503);
         const key = createHash("sha1").update(text).digest("hex");
         let audio = audioCache.get(key);
@@ -92,20 +126,21 @@ export function startApi(store: Store, brain: Brain) {
         res.writeHead(200, { "content-type": "audio/mpeg", "content-length": audio.length });
         return res.end(audio);
       }
+
       if (req.method === "POST" && path === "/api/meetings") {
         if (!authorized(req)) return json(res, { error: "unauthorized" }, 401);
         const body = await readBody(req);
         const type = String(req.headers["content-type"] ?? "");
-        const title = url.searchParams.get("title") ?? "Meeting";
+        const title = (url.searchParams.get("title") ?? "Meeting").slice(0, 60);
         let turns;
         if (type.startsWith("audio/") || type.startsWith("video/") || type === "application/octet-stream") {
-          turns = await transcribe(body, url.searchParams.get("filename") ?? "meeting.m4a", type);
+          turns = await transcribe(body, url.searchParams.get("filename") || "meeting.m4a", type);
         } else {
           const raw = type.includes("json") ? String((JSON.parse(body.toString("utf8")) as { transcript?: string }).transcript ?? "") : body.toString("utf8");
           turns = parseTranscript(raw);
         }
         if (!turns.length) return json(res, { error: "empty transcript" }, 400);
-        const out = await ingestMeeting(store, brain, config.rules, title, turns);
+        const out = await ingestMeeting(store, brain, config.rules, title, turns, Date.now, (e) => tiger?.record(e));
         return json(res, out, 201);
       }
       if (req.method === "GET" && !path.startsWith("/api/")) return serveStatic(res, path);
@@ -119,6 +154,17 @@ export function startApi(store: Store, brain: Brain) {
     console.log(`[api] tree page on http://${config.api.host === "0.0.0.0" ? "localhost" : config.api.host}:${config.api.port}`);
   });
   return server;
+}
+
+/** Which prize tools are switched on right now (shown on the website). */
+export function toolStatus(brain: Brain, tiger?: Tiger) {
+  return {
+    photon: true,
+    brain: brain.name,
+    azure: brain.name.startsWith("azure"),
+    elevenlabs: elevenlabsEnabled(),
+    tiger: tiger ? (tiger.timescale ? "timescaledb" : "postgres") : false,
+  };
 }
 
 function authorized(req: IncomingMessage) {
