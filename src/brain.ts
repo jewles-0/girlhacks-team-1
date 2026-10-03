@@ -199,7 +199,16 @@ export function makeBrain(): Brain {
     );
   }
   if (config.openai.apiKey) {
-    return new LLMBrain(`openai:${config.openai.model}`, new OpenAI({ apiKey: config.openai.apiKey }), config.openai.model);
+    const { apiKey, model, baseURL } = config.openai;
+    const host = baseURL ? new URL(baseURL).hostname : "";
+    // label shows where the model runs, e.g. "azure:Phi-4-mini" or "github-models:openai/gpt-4o-mini"
+    const label =
+      host.endsWith("github.ai") || host === "models.inference.ai.azure.com"
+        ? "github-models"
+        : /(^|\.)azure\.com$/.test(host)
+          ? "azure"
+          : "openai";
+    return new LLMBrain(`${label}:${model}`, new OpenAI({ apiKey, baseURL: baseURL || undefined }), model);
   }
   return new MockBrain();
 }

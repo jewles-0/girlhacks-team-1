@@ -46,7 +46,14 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 AZURE_OPENAI_API_VERSION=2024-10-21
 ```
 
-No Azure? Set `OPENAI_API_KEY` instead (you lose the Avanade prize eligibility). Check which brain is active: `curl localhost:8787/api/health`.
+**Student account blocked from Azure OpenAI?** Try these in order:
+1. Ask the Avanade/Microsoft table for sponsor credits or a sponsored subscription. Then follow the steps above.
+2. Azure AI Foundry with a non-OpenAI model (e.g. Phi-4-mini). Copy its OpenAI-compatible endpoint and key:
+   `OPENAI_BASE_URL=<endpoint>`, `OPENAI_API_KEY=<key>`, `OPENAI_MODEL=<deployment name>`. The startup line shows `brain=azure:...`.
+3. GitHub Models (free, runs on Azure): create a GitHub token with the **Models: read** permission, then set
+   `OPENAI_BASE_URL=https://models.github.ai/inference`, `OPENAI_API_KEY=<token>`, `OPENAI_MODEL=openai/gpt-4o-mini`. Rate-limited, but enough for a demo.
+
+Not on Azure at all? Set `OPENAI_API_KEY` instead (you lose the Avanade prize eligibility). Check which brain is active: `curl localhost:8787/api/health`.
 
 Cost: one small call per burst of messages. The whole weekend should cost a few dollars at most.
 

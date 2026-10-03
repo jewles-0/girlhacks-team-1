@@ -30,6 +30,8 @@ export const config = {
   openai: {
     apiKey: env("OPENAI_API_KEY"),
     model: env("OPENAI_MODEL", "gpt-4o-mini"),
+    // Any OpenAI-compatible endpoint: GitHub Models, Azure AI Foundry models, ...
+    baseURL: env("OPENAI_BASE_URL"),
   },
   elevenlabs: {
     apiKey: env("ELEVENLABS_API_KEY"),
