@@ -19,7 +19,7 @@ In every group project, someone's idea gets talked over, and ten minutes later s
 | Tool | How we used it |
 | --- | --- |
 | Photon Spectrum (`spectrum-ts`) | iMessage line, tapbacks, threaded replies, voice notes |
-| Azure OpenAI (gpt-4o-mini) | One structured JSON call per burst of messages. The model proposes and our code decides |
+| Azure OpenAI (gpt-4.1-mini) | One structured JSON call per burst of messages. The model proposes and our code decides |
 | ElevenLabs | Text-to-speech recaps; Scribe speech-to-text with diarization for meetings and voice notes |
 | Tiger Data | Hypertable of growth events + 15-minute continuous aggregate → "growth rings" chart; compression policy |
 | DeepSpace | Hosts the website on `.app.space` |

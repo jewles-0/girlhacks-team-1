@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { publicChat } from "../src/api.ts";
-import { type Brain, type BrainInput, type BrainOutput, MockBrain, parseBrainOutput } from "../src/brain.ts";
+import OpenAI from "openai";
+import { type Brain, type BrainInput, type BrainOutput, LLMBrain, MockBrain, parseBrainOutput } from "../src/brain.ts";
 import { wordsToTurns } from "../src/elevenlabs.ts";
 import { Keeper, type Outbox } from "../src/keeper.ts";
 import { ingestMeeting, parseTranscript } from "../src/meeting.ts";
@@ -306,4 +307,26 @@ test("growth history: events are emitted and rings are cumulative", async () => 
   assert.equal(events[0]!.treeId, store.chat("c").code);
   const g = growthFromMemory(store.chat("c"));
   assert.deepEqual(g.points.map((p) => [p.planted, p.bloomed]), [[1, 0], [1, 1]]);
+});
+
+test("models that reject a custom temperature (gpt-5 etc.) still work", async () => {
+  const sent: Record<string, unknown>[] = [];
+  const fake = {
+    chat: {
+      completions: {
+        create: async (body: Record<string, unknown>) => {
+          sent.push(body);
+          if ("temperature" in body) {
+            throw new OpenAI.BadRequestError(400, { message: "Unsupported value: 'temperature' does not support 0.2" }, undefined, new Headers());
+          }
+          return { choices: [{ message: { content: '{"items":[{"kind":"idea","text":"x","from":"P1","confidence":0.9}]}' } }] };
+        },
+      },
+    },
+  } as unknown as OpenAI;
+  const brain = new LLMBrain("azure:gpt-5-mini", fake, "gpt-5-mini");
+  const input: BrainInput = { people: [], memory: [], context: [], burst: [{ n: 1, alias: "P1", text: "x" }] };
+  assert.equal((await brain.think(input)).items.length, 1);
+  assert.equal((await brain.think(input)).items.length, 1);
+  assert.deepEqual(sent.map((b) => "temperature" in b), [true, false, false]); // retried once, then remembered
 });

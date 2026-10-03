@@ -30,20 +30,22 @@ az login
 az group create -n keeper-rg -l eastus2
 az cognitiveservices account create -n keeper-openai -g keeper-rg -l eastus2 --kind OpenAI --sku S0 --custom-domain keeper-openai
 az cognitiveservices account deployment create -n keeper-openai -g keeper-rg \
-  --deployment-name gpt-4o-mini --model-name gpt-4o-mini --model-version "2024-07-18" \
+  --deployment-name gpt-4.1-mini --model-name gpt-4.1-mini --model-version "2025-04-14" \
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 10
 az cognitiveservices account show -n keeper-openai -g keeper-rg --query properties.endpoint -o tsv   # -> AZURE_OPENAI_ENDPOINT
 az cognitiveservices account keys list -n keeper-openai -g keeper-rg --query key1 -o tsv             # -> AZURE_OPENAI_API_KEY
 ```
 
-Or use the portal: create an **Azure OpenAI** resource, then in **Azure AI Foundry** deploy `gpt-4o-mini` (or `gpt-4.1-mini`). If a model version isn't available in your region, pick the one the portal offers.
+Or use the portal: create an **Azure OpenAI** resource, then in **Azure AI Foundry** deploy `gpt-4.1-mini`. If the portal marks it deprecated or it isn't offered, use `gpt-5-mini` (Keeper adapts to it automatically).
+
+Azure for Students can only create resources in certain regions. If you get `RequestDisallowedByAzure`, open **Policy → Assignments → Allowed resource deployment regions** in the portal and pick a region from that list.
 
 `.env`:
 ```
 AZURE_OPENAI_ENDPOINT=https://keeper-openai.openai.azure.com/
 AZURE_OPENAI_API_KEY=...
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-10-21
+AZURE_OPENAI_DEPLOYMENT=gpt-4.1-mini
+AZURE_OPENAI_API_VERSION=2025-04-01-preview
 ```
 
 **Student account blocked from Azure OpenAI?** Try these in order:

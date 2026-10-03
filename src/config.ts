@@ -24,8 +24,8 @@ export const config = {
   azure: {
     endpoint: env("AZURE_OPENAI_ENDPOINT"),
     apiKey: env("AZURE_OPENAI_API_KEY"),
-    deployment: env("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
-    apiVersion: env("AZURE_OPENAI_API_VERSION", "2024-10-21"),
+    deployment: env("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1-mini"),
+    apiVersion: env("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
   },
   openai: {
     apiKey: env("OPENAI_API_KEY"),

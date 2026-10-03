@@ -97,23 +97,34 @@ export function parseBrainOutput(raw: unknown): BrainOutput {
   return { items, updates, credits, reply: str(o.reply)?.slice(0, 400) };
 }
 
-class LLMBrain implements Brain {
+export class LLMBrain implements Brain {
+  // Newer reasoning models (gpt-5, o-series) reject a custom temperature; we drop it after the first 400.
+  private useTemperature = true;
   constructor(
     public name: string,
     private client: OpenAI,
     private model: string,
   ) {}
   async think(input: BrainInput): Promise<BrainOutput> {
-    try {
-      const res = await this.client.chat.completions.create({
+    const call = () =>
+      this.client.chat.completions.create({
         model: this.model,
-        temperature: 0.2,
+        ...(this.useTemperature ? { temperature: 0.2 } : {}),
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt(input) },
         ],
       });
+    try {
+      let res;
+      try {
+        res = await call();
+      } catch (err) {
+        if (!(err instanceof OpenAI.BadRequestError) || !/temperature/i.test(err.message) || !this.useTemperature) throw err;
+        this.useTemperature = false;
+        res = await call();
+      }
       return parseBrainOutput(res.choices[0]?.message?.content ?? "");
     } catch (err) {
       console.error(`[brain] ${this.name} call failed:`, (err as Error).message);
