@@ -74,8 +74,16 @@ async function runBot() {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
+  console.log(
+    mode === "terminal"
+      ? "[keeper] ready: type below, e.g.  Priya: I'll do the slides by Friday"
+      : "[keeper] ready: text your Photon line \"keeper help\". Each incoming message is logged here.",
+  );
   for await (const [space, message] of app.messages) {
     try {
+      // debug line without phone numbers or message text
+      const chatType = (space as { type?: string }).type ?? "chat";
+      console.log(`[in] ${store.chat(space.id).id} (${chatType}) ${message.direction} ${message.content.type}`);
       if (message.direction !== "inbound" || message.sender?.kind === "agent") continue;
       if (!spaces.has(space.id) && (space as { type?: string }).type === "group") {
         // name the tree after the group chat (best-effort; "keeper name ..." overrides)
