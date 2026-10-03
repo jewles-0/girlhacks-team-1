@@ -27,8 +27,8 @@ With the Azure for Students credit (https://azure.microsoft.com/free/students):
 
 ```bash
 az login
-az group create -n keeper-rg -l eastus
-az cognitiveservices account create -n keeper-openai -g keeper-rg -l eastus --kind OpenAI --sku S0 --custom-domain keeper-openai
+az group create -n keeper-rg -l eastus2
+az cognitiveservices account create -n keeper-openai -g keeper-rg -l eastus2 --kind OpenAI --sku S0 --custom-domain keeper-openai
 az cognitiveservices account deployment create -n keeper-openai -g keeper-rg \
   --deployment-name gpt-4o-mini --model-name gpt-4o-mini --model-version "2024-07-18" \
   --model-format OpenAI --sku-name GlobalStandard --sku-capacity 10
@@ -65,9 +65,11 @@ What it powers:
 ## 4. Tiger Data (MLH prize)
 
 1. Sign up at https://console.cloud.timescale.com (Tiger Cloud, free tier).
-2. Create a service, then copy its connection string (`postgres://tsdbadmin:...@....tsdb.cloud.timescale.com:3xxxx/tsdb?sslmode=require`).
-3. `.env`: `TIGER_DATABASE_URL=...`
-4. Restart. The log should say `[tiger] connected (TimescaleDB hypertable + continuous aggregate)`.
+2. Create a service: provider **Azure**, region **eastus2 (Virginia)**, the **smallest compute** size, no replicas or high availability. Our data is tiny.
+   If Azure asks for a paid plan or Marketplace billing, use **AWS us-east-1** instead. The Avanade prize is about Azure OpenAI, not this database.
+3. Copy the service's connection string (`postgres://tsdbadmin:...@....tsdb.cloud.timescale.com:3xxxx/tsdb?sslmode=require`).
+4. `.env`: `TIGER_DATABASE_URL=...`
+5. Restart. The log should say `[tiger] connected (TimescaleDB hypertable + continuous aggregate)`.
 
 On first start Keeper creates everything itself:
 - `keeper_events`: a **hypertable** with one row per sprout, bloom or credit.
