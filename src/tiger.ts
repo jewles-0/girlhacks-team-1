@@ -25,7 +25,16 @@ export class Tiger {
   private constructor(private pool: pg.Pool) {}
 
   static async connect(url: string, log = console.log): Promise<Tiger | undefined> {
-    const pool = new pg.Pool({ connectionString: url, max: 3, ssl: /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false } });
+    log("[tiger] connecting…");
+    // We set SSL ourselves, so drop "sslmode" from the URL (pg prints a confusing warning about it).
+    const u = new URL(url);
+    u.searchParams.delete("sslmode");
+    const pool = new pg.Pool({
+      connectionString: u.toString(),
+      max: 3,
+      connectionTimeoutMillis: 10_000, // never hang startup on a blocked network
+      ssl: /localhost|127\.0\.0\.1/.test(url) ? undefined : { rejectUnauthorized: false },
+    });
     pool.on("error", (e) => log(`[tiger] pool error: ${e.message}`));
     const t = new Tiger(pool);
     try {
@@ -33,7 +42,12 @@ export class Tiger {
       log(`[tiger] connected (${t.timescale ? "TimescaleDB hypertable + continuous aggregate" : "plain Postgres fallback"})`);
       return t;
     } catch (e) {
-      log(`[tiger] disabled: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      log(`[tiger] disabled: ${msg}`);
+      if (/timeout|ETIMEDOUT|ECONNREFUSED|ENOTFOUND/i.test(msg)) {
+        log("[tiger] tip: some Wi-Fi (campus, hackathon) blocks database ports. Try a phone hotspot, or check the service is running in the Tiger console.");
+      }
+      log("[tiger] continuing without it: growth rings are computed from memory.");
       await pool.end().catch(() => {});
       return undefined;
     }

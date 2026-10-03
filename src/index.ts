@@ -5,7 +5,7 @@
 //   npm run tree      -> only the API + tree page (reads data/state.json)
 import { type Message, type Space, Spectrum, voice } from "spectrum-ts";
 import { makeBrain } from "./brain.ts";
-import { startApi } from "./api.ts";
+import { type ApiDeps, startApi } from "./api.ts";
 import { config } from "./config.ts";
 import { elevenlabsEnabled, transcribe, tts } from "./elevenlabs.ts";
 import { Keeper, type Outbox } from "./keeper.ts";
@@ -15,10 +15,17 @@ import { Tiger } from "./tiger.ts";
 const mode = (process.argv[2] ?? "imessage") as "imessage" | "local" | "terminal" | "api-only";
 const store = new Store(config.dataFile);
 const brain = makeBrain();
-const tiger = config.tigerUrl ? await Tiger.connect(config.tigerUrl) : undefined;
-await tiger?.backfill(store).catch((e) => console.error("[tiger] backfill failed:", e.message));
-const api = startApi({ store, brain, tiger });
-console.log(`[keeper] mode=${mode} brain=${brain.name} voice=${elevenlabsEnabled() ? "elevenlabs" : "off"} history=${tiger ? "tiger" : "memory"}`);
+const apiDeps: ApiDeps = { store, brain };
+const api = startApi(apiDeps);
+console.log(`[keeper] mode=${mode} brain=${brain.name} voice=${elevenlabsEnabled() ? "elevenlabs" : "off"} history=${config.tigerUrl ? "tiger" : "memory"}`);
+// Tiger Data connects in the background so a slow or blocked network never stops the bot.
+let tiger: Tiger | undefined;
+if (config.tigerUrl) {
+  void Tiger.connect(config.tigerUrl).then(async (t) => {
+    tiger = apiDeps.tiger = t;
+    await t?.backfill(store).catch((e) => console.error("[tiger] backfill failed:", e.message));
+  });
+}
 // Local convenience only: the codes are secrets, so they're printed here, never served by the API.
 for (const c of Object.values(store.state.chats)) console.log(`[keeper] tree ${c.code}  ${c.title ?? (c.isDm ? "(1:1 chat)" : c.id)}  ${config.publicUrl}/?code=${c.code}`);
 

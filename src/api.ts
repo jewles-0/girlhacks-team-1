@@ -61,7 +61,8 @@ export interface ApiDeps {
   tiger?: Tiger;
 }
 
-export function startApi({ store, brain, tiger }: ApiDeps) {
+export function startApi(deps: ApiDeps) {
+  const { store, brain } = deps; // deps.tiger may connect later, so it's read per request
   const audioCache = new Map<string, Buffer>();
   const misses = new Map<string, { n: number; reset: number }>();
 
@@ -83,7 +84,7 @@ export function startApi({ store, brain, tiger }: ApiDeps) {
       const path = url.pathname;
 
       if (req.method === "GET" && path === "/api/health") {
-        return json(res, { ok: true, tools: toolStatus(brain, tiger) });
+        return json(res, { ok: true, tools: toolStatus(brain, deps.tiger) });
       }
 
       // A code can be a tree code (one chat) or a personal grove code (every chat you're in).
@@ -110,6 +111,7 @@ export function startApi({ store, brain, tiger }: ApiDeps) {
         const sub = m[2];
         if (!sub) return json(res, publicChat(chat));
         if (sub === "/growth") {
+          const tiger = deps.tiger;
           const growth = tiger ? await tiger.growth(chat.code).catch(() => growthFromMemory(chat)) : growthFromMemory(chat);
           return json(res, growth);
         }
@@ -140,7 +142,7 @@ export function startApi({ store, brain, tiger }: ApiDeps) {
           turns = parseTranscript(raw);
         }
         if (!turns.length) return json(res, { error: "empty transcript" }, 400);
-        const out = await ingestMeeting(store, brain, config.rules, title, turns, Date.now, (e) => tiger?.record(e));
+        const out = await ingestMeeting(store, brain, config.rules, title, turns, Date.now, (e) => deps.tiger?.record(e));
         return json(res, out, 201);
       }
       if (req.method === "GET" && !path.startsWith("/api/")) return serveStatic(res, path);
